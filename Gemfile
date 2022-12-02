@@ -18,6 +18,9 @@ group :production do
   gem 'pg'
 end
 
+# Add Devise for password authentication
+gem 'devise'
+
 # Use the Puma web server [https://github.com/puma/puma]
 gem "puma", "~> 5.0"
 
