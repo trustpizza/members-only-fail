@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
-class TurboFailureApp < DeviseFailureApp
+class TurboFailureApp < Devise::FailureApp
   def respond
-    if request_format = :turbo_stream
+    if request_format == :turbo_stream
       redirect
     else
       super
@@ -12,26 +12,6 @@ class TurboFailureApp < DeviseFailureApp
   def skip_format?
     %w(html turbo_stream */*).include? request_format.to_s
   end
-end
-
-class TurboController < ApplicationController
-
-  class Responder < ActionController::Responder
-    def to_turbo_stream
-      controller.render(optiions.merge(format: :html))
-    rescue ActionView::MissingTemplate => error 
-      if get?
-        raise error
-      elsif has_errors? && default_action
-        render rendering_options.merge(formats: :html, status: :unprocessable_entity)
-      else
-        redirect_to navigation_location
-      end
-    end
-  end
-
-  self.responder = Responder
-  respond_to :html, :turbo_stream
 end
 
 # Assuming you have not yet modified this file, each configuration option below
@@ -48,11 +28,11 @@ Devise.setup do |config|
   # confirmation, reset password and unlock tokens in the database.
   # Devise will use the `secret_key_base` as its `secret_key`
   # by default. You can change it below and use your own secret key.
-  # config.secret_key = '17eda1ea4a54693363621f47cf17e09190fd41ebf8d9e27c5eecf87519eda3b3d97ca4da728bad7acf9be8735c54f82b0d8459d923fd6de7ace6315078dfbe15'
+  config.secret_key = Rails.application.credentials.secret_key_base
 
   # ==> Controller configuration
   # Configure the parent class to the devise controllers.
-  config.parent_controller = 'TurboController'
+  config.parent_controller = 'Users::DeviseController'
 
   # ==> Mailer Configuration
   # Configure the e-mail address which will be shown in Devise::Mailer,
@@ -160,7 +140,7 @@ Devise.setup do |config|
   config.stretches = Rails.env.test? ? 1 : 12
 
   # Set up a pepper to generate the hashed password.
-  # config.pepper = 'ac28c5adc03379e730a5274ccf424fa9216ecb6e25021de6cb0a712c17e11cb8c9830ed308b8fbebe585fca0b05a64407b9b94cf94946f50b47da8a76c5366ab'
+  # config.pepper = '2a25d1f4116b51e0756a330a7f9a08787d8dddd6da9dbd82d3cc8cf45f7b67bd884a58e2ded3bf636abde3258d2497a3fd4111078b8226a7c79228a378a12bc2'
 
   # Send a notification to the original email when the user's email is changed.
   # config.send_email_changed_notification = false
@@ -297,7 +277,7 @@ Devise.setup do |config|
   # should add them to the navigational formats lists.
   #
   # The "*/*" below is required to match Internet Explorer requests.
-   config.navigational_formats = ['*/*', :html, :turbo_stream]
+  config.navigational_formats = ['*/*', :html, :turbo_stream]
 
   # The default HTTP method used to sign out a resource. Default is :delete.
   config.sign_out_via = :delete
@@ -307,14 +287,21 @@ Devise.setup do |config|
   # up on your models and hooks.
   # config.omniauth :github, 'APP_ID', 'APP_SECRET', scope: 'user,public_repo'
 
+  env_creds = Rails.application.credentials[Rails.env.to_sym] || {}
+    %i{ facebook twitter github }.each do |provider|
+      if options = env_creds[provider]
+        config.omniauth provider, options[:app_id], options[:app_secret], options.fetch(:options, {})
+      end
+    end
+
   # ==> Warden configuration
   # If you want to use other strategies, that are not supported by Devise, or
   # change the failure app, you can configure them inside the config.warden block.
   #
   config.warden do |manager|
     manager.failure_app = TurboFailureApp
-   # manager.intercept_401 = false
-   # manager.default_strategies(scope: :user).unshift :some_external_strategy
+  #   manager.intercept_401 = false
+  #   manager.default_strategies(scope: :user).unshift :some_external_strategy
   end
 
   # ==> Mountable engine configurations
